@@ -47,5 +47,22 @@ class Controller:
         self._view.page.update()
 
     """Implementare la parte di ricerca del cammino minimo"""
+    def handle_mostra_cammino_minimo(self, e):
+        """Callback per il pulsante 'Cammino Minimo'."""
+        try:
+            soglia = float(self._view.txt_soglia.value)
+        except:
+            self._view.show_alert("Inserisci un numero valido per la soglia.")
+            return
+
+        lista_tratte = self._model.get_mostra_cammino_minimo(soglia)
+        self._view.lista_visualizzazione_3.controls.clear()
+        for tratta in lista_tratte:
+            rifugio_1 = tratta[0]
+            rifugio_2 = tratta[1]
+            peso = tratta[2]["weight"]
+            testo = f"{rifugio_1} --> {rifugio_2} [peso: {peso:.2f}]"
+            self._view.lista_visualizzazione_3.controls.append(ft.Text(testo))
+        self._view.page.update()
     # TODO
 
