@@ -1,7 +1,5 @@
 from math import inf
 import networkx as nx
-from networkx.algorithms.shortest_paths.weighted import all_pairs_dijkstra_path
-
 from database.dao import DAO
 
 class Model:
@@ -11,6 +9,9 @@ class Model:
         self.rifugi = DAO.get_rifugi()              # Dizionario -> {id_rifugio : "nome_rifugio (localita)"}
         self.connessioni = self.G.edges(data=True)  # Lista di tuple -> [(id_1, id_2, {"attributo" : float})]
         self.tratte_valide = []
+        self.G2 = nx.Graph()
+        self.cammino_ottimo = []
+        self.peso_minimo = float(inf)
 
         # TODO
 
@@ -67,16 +68,16 @@ class Model:
     """Implementare la parte di ricerca del cammino minimo"""
 
     def get_mostra_cammino_minimo(self, soglia):
-        self.cammino_ottimo = []
-        self.peso_minimo = float(inf)
         for edge in self.connessioni:
             if edge[2]["weight"] > soglia:
                 self.tratte_valide.append(edge)
 
         # Utilizzando la ricorsione
-        self.ricorsione([], 0)
-        # Utilizzando un metodo di NetworkX
-        #self.metodo_dijkstra(soglia)
+        #self.ricorsione([], 0)
+
+        # Utilizzando networkX
+        self.metodo_networkX(soglia)
+
         return self.cammino_ottimo   # Ritorna una tupla con una lista di tratte e un valore numerico "peso"
 
 
@@ -98,9 +99,44 @@ class Model:
                 self.ricorsione(nuovo_cammino, nuovo_peso)
 
     def metodo_networkX(self, soglia):
-        G2 = nx.Graph()
         for edge in self.G.edges(data=True):        # Creo un nuovo grafo a cui aggiungo solamente gli archi che hanno peso
                                                     # maggiore della soglia, così che posso iterare al suo interno
             if edge[2]["weight"] > soglia:
-                G2.add_edge(edge[0], edge[1], weight = edge[2]["weight"])
-        # TODO
+                self.G2.add_edge(edge[0], edge[1], weight = edge[2]["weight"])
+        # Qui ho già il mio nuovo grafo con gli archi filtrati per peso
+        # Devo trovare il cammino più breve
+        for partenza in self.G2.nodes():        # Itero sui nodi del mio nuovo grafo
+            pesi, percorsi = nx.single_source_dijkstra(self.G2, partenza, weight = "weight") # Utilizzo single_source_dijkstra, che restituisce due dizionari
+                                                                                             # Aventi chiavi uguali, ad ogni chiave corrisponde un percorso nel secondo dizionario
+                                                                                             # e il peso del rispettivo percorso nel primo dizionario
+
+            for arrivo in percorsi:             # Itero tra le chiavi del secondo dizionario, ovvero tra tutti i nodi "destinazione" a cui posso giungere da uno dei
+                                                # miei nodi di partenza su cui stavo già iterando
+
+                percorso = percorsi[arrivo]     # Prendo percorso dal mio dizionario percorsi
+                if len(percorso) > 2 and arrivo != partenza:    # Verifico che la lunghezza sia > 2, ovvero che siano presenti almeno 3 nodi in quel percorso,
+                                                                # quindi almeno 2 tratte
+                    peso = pesi[arrivo]                 # Salvo il peso del percorso che sto analizzando
+                    if peso < self.peso_minimo:         # Se il peso del percorso è minore del peso ottimo già trovato
+                        self.peso_minimo = peso         # Sostituisco il peso ottimo con il peso corrente
+
+                        # SE MI TROVO QUI VUOL DIRE CHE HO DAVANTI UN POTEZIALE PERCORSO OTTIMO
+
+                        # Adesso devo trovare un modo per formattare bene il risultato ottenuto, devo uniformare l'output di questo algoritmo all'output
+                        # della ricorsione per non dover modificare view e controller
+                        cammino = []
+                        for i in range(len(percorso) - 1):  # Itero sugli indici della lunghezza del potenziale percorso migliore
+                            nodo_1 = percorso[i]            # Salvo il primo nodo
+                            nodo_2 = percorso[i + 1]        # Salvo il secondo nodo
+                            peso = self.G2[nodo_1][nodo_2]  # Salvo il peso della tratta
+                            tupla = nodo_1, nodo_2, peso    # Creo una tupla (nodo1, nodo2, {"weight" : float})
+                            cammino.append(tupla)           # Appendo la tupla al cammino
+                        self.cammino_ottimo = cammino       # Aggiorno il cammino ottimo
+
+                        # SE TROVO UN PESO MIGLIORE, QUESTO CAMMINO VERRA' SOVRASCRITTO
+
+
+
+
+
+
